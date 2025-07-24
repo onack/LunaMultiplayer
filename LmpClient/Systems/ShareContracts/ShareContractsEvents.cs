@@ -51,12 +51,17 @@ namespace LmpClient.Systems.ShareContracts
             if (System.IgnoreEvents) return;
 
             System.MessageSender.SendContractMessage(contract);
-            LunaLog.Log($"Contract accepted: {contract.ContractGuid}");
+            LunaLog.Log($"Contract accepted: {contract.ContractGuid} - {contract.Title}");
 
             // Rescue contracts will be handled by the NewVesselCreated event
             if (contract.GetType() == typeof(RecoverAsset))
             {
                 LunaLog.Log($"Rescue contract accepted: {contract.ContractGuid} - {contract.Title}");
+                LunaLog.Log($"  - Contract state: {contract.ContractState}");
+                LunaLog.Log($"  - Contract prestige: {contract.Prestige}");
+                
+                // Store information about the accepted rescue contract for better vessel detection
+                // This could be used to improve rescue vessel detection in the future
             }
         }
 
@@ -151,6 +156,30 @@ namespace LmpClient.Systems.ShareContracts
 
         #endregion
 
+        #region Vessel Load Event Handling
+
+        /// <summary>
+        /// Handle vessels that are loaded when a player joins (existing vessels)
+        /// </summary>
+        public void OnVesselLoaded(Vessel vessel)
+        {
+            if (vessel == null || vessel.id == Guid.Empty) return;
+
+            LunaLog.Log($"Vessel loaded: {vessel.vesselName} (ID: {vessel.id})");
+            
+            // Check if this is a rescue vessel that we haven't processed yet
+            if (IsRescueVessel(vessel) && !ProcessedRescueVessels.Contains(vessel.id))
+            {
+                LunaLog.Log($"Existing rescue vessel detected: {vessel.vesselName} (ID: {vessel.id})");
+                ProcessedRescueVessels.Add(vessel.id);
+                
+                // Sync the rescue vessel immediately since it's already loaded
+                SyncRescueVessel(vessel);
+            }
+        }
+
+        #endregion
+
         #region New Vessel Handling
 
         private static readonly HashSet<Guid> ProcessedRescueVessels = new HashSet<Guid>();
@@ -160,7 +189,29 @@ namespace LmpClient.Systems.ShareContracts
         /// </summary>
         public void NewVesselCreated(Vessel vessel)
         {
-            if (vessel == null || vessel.id == Guid.Empty) return;
+            if (vessel == null || vessel.id == Guid.Empty) 
+            {
+                LunaLog.LogWarning("NewVesselCreated called with null or empty vessel");
+                return;
+            }
+
+            LunaLog.Log($"New vessel created: {vessel.vesselName} (ID: {vessel.id})");
+            LunaLog.Log($"  - Main body: {vessel.mainBody?.name ?? "null"}");
+            LunaLog.Log($"  - Situation: {vessel.situation}");
+            LunaLog.Log($"  - Crew count: {vessel.GetCrewCount()}");
+            LunaLog.Log($"  - Parts count: {vessel.parts.Count}");
+            LunaLog.Log($"  - Vessel type: {vessel.vesselType}");
+            LunaLog.Log($"  - Mission time: {vessel.missionTime}");
+            
+            // Log crew details if any
+            if (vessel.GetCrewCount() > 0)
+            {
+                LunaLog.Log($"  - Crew members:");
+                foreach (var crew in vessel.GetVesselCrew())
+                {
+                    LunaLog.Log($"    * {crew.name} ({crew.trait})");
+                }
+            }
 
             // Only handle rescue vessels, ignore all other vessels
             if (IsRescueVessel(vessel))
@@ -168,14 +219,23 @@ namespace LmpClient.Systems.ShareContracts
                 // Prevent processing the same vessel multiple times
                 if (ProcessedRescueVessels.Contains(vessel.id))
                 {
+                    LunaLog.Log($"Rescue vessel {vessel.vesselName} already processed, skipping");
                     return;
                 }
                 
                 ProcessedRescueVessels.Add(vessel.id);
-                LunaLog.Log($"Rescue vessel created: {vessel.vesselName} ({vessel.id})");
+                LunaLog.Log($"✅ RESCUE VESSEL DETECTED: {vessel.vesselName} ({vessel.id})");
                 
-                // Add a small delay to ensure the vessel is fully initialized
-                CoroutineUtil.StartDelayedRoutine("DelayedRescueVesselSync", () => SyncRescueVessel(vessel), 0.5f);
+                // Add a longer delay to ensure the vessel is fully initialized
+                // Rescue vessels can take time to fully spawn and initialize
+                CoroutineUtil.StartDelayedRoutine("DelayedRescueVesselSync", () => SyncRescueVessel(vessel), 2.0f);
+                
+                // Also try again after a longer delay in case the first attempt fails
+                CoroutineUtil.StartDelayedRoutine("DelayedRescueVesselSyncRetry", () => SyncRescueVessel(vessel), 5.0f);
+            }
+            else
+            {
+                LunaLog.Log($"❌ Not a rescue vessel: {vessel.vesselName} - does not meet rescue vessel criteria");
             }
         }
 
@@ -184,20 +244,45 @@ namespace LmpClient.Systems.ShareContracts
         /// </summary>
         private void SyncRescueVessel(Vessel vessel)
         {
-            if (vessel == null || vessel.id == Guid.Empty) return;
+            if (vessel == null || vessel.id == Guid.Empty) 
+            {
+                LunaLog.LogError("Cannot sync rescue vessel: vessel is null or has empty ID");
+                return;
+            }
             
             try
             {
+                LunaLog.Log($"Starting rescue vessel sync for: {vessel.vesselName} (ID: {vessel.id})");
+                
+                // Ensure the vessel is still valid
+                if (vessel.state == Vessel.State.DEAD)
+                {
+                    LunaLog.LogWarning($"Vessel {vessel.vesselName} is dead, skipping sync");
+                    return;
+                }
+                
                 // Send the vessel to all players
+                LunaLog.Log($"Sending vessel message for: {vessel.vesselName}");
                 VesselProtoSystem.Singleton.MessageSender.SendVesselMessage(vessel, true);
                 
                 // Sync the kerbals on the rescue vessel
                 var crew = vessel.GetVesselCrew();
+                LunaLog.Log($"Syncing {crew.Count} crew members from rescue vessel");
+                
                 foreach (var kerbal in crew)
                 {
-                    LunaLog.Log($"Syncing rescue kerbal: {kerbal.name}");
-                    KerbalSystem.Singleton.MessageSender.SendKerbal(kerbal);
+                    if (kerbal != null)
+                    {
+                        LunaLog.Log($"Syncing rescue kerbal: {kerbal.name}");
+                        KerbalSystem.Singleton.MessageSender.SendKerbal(kerbal);
+                    }
+                    else
+                    {
+                        LunaLog.LogWarning("Found null kerbal in rescue vessel crew");
+                    }
                 }
+                
+                LunaLog.Log($"Successfully synced rescue vessel: {vessel.vesselName}");
             }
             catch (Exception e)
             {
@@ -206,38 +291,113 @@ namespace LmpClient.Systems.ShareContracts
         }
 
         /// <summary>
+        /// Check if there are any active rescue contracts that might be related to this vessel
+        /// </summary>
+        private bool HasActiveRescueContracts()
+        {
+            if (ContractSystem.Instance?.Contracts == null) return false;
+            
+            foreach (var contract in ContractSystem.Instance.Contracts)
+            {
+                if (contract.GetType() == typeof(RecoverAsset) && 
+                    contract.ContractState == Contract.State.Active)
+                {
+                    LunaLog.Log($"Found active rescue contract: {contract.ContractGuid} - {contract.Title}");
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /// <summary>
         /// Determine if a vessel is likely a rescue vessel
         /// </summary>
         private bool IsRescueVessel(Vessel vessel)
         {
-            // Rescue vessels are typically:
-            // - Landed on Kerbin
-            // - Have crew
-            // - Have specific naming patterns
-            // - Are small vessels (rescue missions are usually simple)
+            if (vessel == null) return false;
             
-            if (vessel.mainBody != FlightGlobals.GetHomeBody()) return false;
-            if (vessel.situation != Vessel.Situations.LANDED) return false;
-            if (vessel.GetCrewCount() == 0) return false;
+            LunaLog.Log($"🔍 Checking if vessel is rescue vessel: {vessel.vesselName} (ID: {vessel.id})");
+            LunaLog.Log($"  - Main body: {vessel.mainBody?.name}");
+            LunaLog.Log($"  - Situation: {vessel.situation}");
+            LunaLog.Log($"  - Crew count: {vessel.GetCrewCount()}");
+            LunaLog.Log($"  - Parts count: {vessel.parts.Count}");
             
-            // Check for rescue-related naming patterns - be more specific
-            var vesselName = vessel.vesselName.ToLower();
-            if (vesselName.Contains("rescue") || 
-                vesselName.Contains("stranded") || 
-                vesselName.Contains("kerbal") ||
-                vesselName.Contains("escape") ||
-                vesselName.Contains("survival"))
+            // Rescue vessels can be in various situations, not just landed
+            // They can be in orbit, sub-orbital, etc.
+            bool isRescueVessel = false;
+            string detectionReason = "";
+            
+            // Check vessel naming patterns
+            var vesselNameLower = vessel.vesselName.ToLowerInvariant();
+            if (vesselNameLower.Contains("recover") || vesselNameLower.Contains("lost") || 
+                vesselNameLower.Contains("stranded") || vesselNameLower.Contains("rescue"))
             {
-                return true;
+                isRescueVessel = true;
+                detectionReason = "vessel name contains rescue-related terms";
             }
             
-            // Additional check: if it's a small vessel with exactly 1 crew member, it might be a rescue vessel
-            if (vessel.GetCrewCount() == 1 && vessel.parts.Count <= 5)
+            // Check for small vessels with crew (typical rescue vessels)
+            if (!isRescueVessel && vessel.parts.Count <= 8 && vessel.GetCrewCount() == 1)
             {
-                return true;
+                isRescueVessel = true;
+                detectionReason = "small vessel (≤8 parts) with exactly 1 crew member";
             }
             
-            return false;
+            // Check for very small vessels with crew
+            if (!isRescueVessel && vessel.parts.Count <= 3 && vessel.GetCrewCount() > 0)
+            {
+                isRescueVessel = true;
+                detectionReason = "very small vessel (≤3 parts) with crew";
+            }
+            
+            // Check kerbal names for rescue-related terms
+            if (!isRescueVessel && vessel.GetCrewCount() > 0)
+            {
+                foreach (var crew in vessel.GetVesselCrew())
+                {
+                    var crewNameLower = crew.name.ToLowerInvariant();
+                    if (crewNameLower.Contains("rescue") || crewNameLower.Contains("stranded") || 
+                        crewNameLower.Contains("lost"))
+                    {
+                        isRescueVessel = true;
+                        detectionReason = $"kerbal name contains rescue terms: {crew.name}";
+                        break;
+                    }
+                }
+            }
+            
+            // Check if there are active rescue contracts
+            if (!isRescueVessel && HasActiveRescueContracts())
+            {
+                isRescueVessel = true;
+                detectionReason = "active rescue contracts detected";
+            }
+            
+            // Additional checks for specific rescue vessel characteristics
+            if (!isRescueVessel)
+            {
+                // Check if vessel is in a typical rescue situation (sub-orbital, landed, etc.)
+                if (vessel.situation == Vessel.Situations.SUB_ORBITAL || 
+                    vessel.situation == Vessel.Situations.LANDED ||
+                    vessel.situation == Vessel.Situations.SPLASHED)
+                {
+                    // Check if it's a small vessel with crew in a rescue-like situation
+                    if (vessel.parts.Count <= 5 && vessel.GetCrewCount() > 0)
+                    {
+                        isRescueVessel = true;
+                        detectionReason = $"small vessel with crew in {vessel.situation} situation";
+                    }
+                }
+            }
+            
+            LunaLog.Log($"  - Detection result: {(isRescueVessel ? "✅ RESCUE VESSEL" : "❌ NOT RESCUE VESSEL")}");
+            if (isRescueVessel)
+            {
+                LunaLog.Log($"  - Detection reason: {detectionReason}");
+            }
+            
+            return isRescueVessel;
         }
 
         #endregion

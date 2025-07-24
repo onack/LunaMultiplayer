@@ -48,6 +48,9 @@ namespace LmpClient.Systems.ShareContracts
 
             // Listen for new vessels created (like rescue vessels)
             GameEvents.onNewVesselCreated.Add(ShareContractsEvents.NewVesselCreated);
+            
+            // Listen for vessels loaded when player joins (existing vessels)
+            VesselLoadEvent.onLmpVesselLoaded.Add(ShareContractsEvents.OnVesselLoaded);
         }
 
         protected override void OnDisabled()
@@ -75,6 +78,7 @@ namespace LmpClient.Systems.ShareContracts
             GameEvents.Contract.onSeen.Remove(ShareContractsEvents.ContractSeen);
 
             GameEvents.onNewVesselCreated.Remove(ShareContractsEvents.NewVesselCreated);
+            VesselLoadEvent.onLmpVesselLoaded.Remove(ShareContractsEvents.OnVesselLoaded);
         }
 
         /// <summary>
