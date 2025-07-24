@@ -9,7 +9,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>LmpClient</RootNamespace>
     <AssemblyName>LmpClient</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
   </PropertyGroup>
@@ -868,9 +868,10 @@
   <Import Project="..\LmpCommon\LmpCommon.projitems" Label="Shared" />
   <Import Project="..\LmpGlobal\LmpGlobal.projitems" Label="Shared" />
   <PropertyGroup>
-    <PostBuildEvent Condition="'$(OS)' != 'Unix'">if /I "$(ConfigurationName)" == "Debug" call  "$(SolutionDir)Scripts\CopyToKSPDirectory.bat" $(ConfigurationName)</PostBuildEvent>
+    <PostBuildEvent Condition="'$(OS)' != 'Unix'">if /I "$(ConfigurationName)" == "Debug" call  "$(ProjectDir)..\Scripts\CopyToKSPDirectory.bat" $(ConfigurationName)</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PreBuildEvent Condition="'$(OS)' != 'Unix'">xcopy /Y "$(SolutionDir)External\Dependencies\*.dll" "$(TargetDir)"</PreBuildEvent>
+    <!-- Temporarily disabled PreBuildEvent to fix build issues -->
+    <!-- <PreBuildEvent Condition="'$(OS)' != 'Unix'">xcopy /Y "$(SolutionDir)External\Dependencies\*.dll" "$(TargetDir)"</PreBuildEvent> -->
   </PropertyGroup>
 </Project>

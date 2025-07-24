@@ -2,6 +2,8 @@
 using LmpClient.Events;
 using LmpClient.Systems.Lock;
 using LmpClient.Systems.ShareProgress;
+using LmpClient.Systems.VesselProtoSys;
+using LmpClient.Systems.KerbalSys;
 using LmpCommon.Enums;
 
 namespace LmpClient.Systems.ShareContracts
@@ -43,6 +45,9 @@ namespace LmpClient.Systems.ShareContracts
             GameEvents.Contract.onParameterChange.Add(ShareContractsEvents.ContractParameterChanged);
             GameEvents.Contract.onRead.Add(ShareContractsEvents.ContractRead);
             GameEvents.Contract.onSeen.Add(ShareContractsEvents.ContractSeen);
+
+            // Listen for new vessels created (like rescue vessels)
+            GameEvents.onNewVesselCreated.Add(ShareContractsEvents.NewVesselCreated);
         }
 
         protected override void OnDisabled()
@@ -68,6 +73,8 @@ namespace LmpClient.Systems.ShareContracts
             GameEvents.Contract.onParameterChange.Remove(ShareContractsEvents.ContractParameterChanged);
             GameEvents.Contract.onRead.Remove(ShareContractsEvents.ContractRead);
             GameEvents.Contract.onSeen.Remove(ShareContractsEvents.ContractSeen);
+
+            GameEvents.onNewVesselCreated.Remove(ShareContractsEvents.NewVesselCreated);
         }
 
         /// <summary>
