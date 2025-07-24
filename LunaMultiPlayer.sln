@@ -129,8 +129,8 @@ Global
 		SolutionGuid = {46CE1FFE-A52F-4C6D-8FF1-11B6E792761B}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		LmpCommon\LmpCommon.projitems*{13549ede-d540-47ba-86bc-731bb7dd7bfb}*SharedItemsImports = 4
-		LmpGlobal\LmpGlobal.projitems*{13549ede-d540-47ba-86bc-731bb7dd7bfb}*SharedItemsImports = 4
+		LmpCommon\LmpCommon.projitems*{13549ede-d540-47ba-86bc-731bb7dd7bfb}*SharedItemsImports = 5
+		LmpGlobal\LmpGlobal.projitems*{13549ede-d540-47ba-86bc-731bb7dd7bfb}*SharedItemsImports = 5
 		LmpGlobal\LmpGlobal.projitems*{437ec4b0-c1b8-48ac-9f98-2c76f9ede65f}*SharedItemsImports = 5
 		LmpCommon\LmpCommon.projitems*{7ad735f5-a076-44d2-97ec-02ecad827001}*SharedItemsImports = 4
 		LmpGlobal\LmpGlobal.projitems*{7ad735f5-a076-44d2-97ec-02ecad827001}*SharedItemsImports = 4
