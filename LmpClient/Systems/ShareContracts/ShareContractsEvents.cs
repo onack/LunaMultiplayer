@@ -331,40 +331,18 @@ namespace LmpClient.Systems.ShareContracts
             // Check vessel naming patterns
             var vesselNameLower = vessel.vesselName.ToLowerInvariant();
             if (vesselNameLower.Contains("recover") || vesselNameLower.Contains("lost") || 
-                vesselNameLower.Contains("stranded") || vesselNameLower.Contains("rescue"))
+                vesselNameLower.Contains("stranded") || vesselNameLower.Contains("rescue") ||
+                vesselNameLower.Contains("derelict"))
             {
                 isRescueVessel = true;
                 detectionReason = "vessel name contains rescue-related terms";
             }
             
-            // Check for small vessels with crew (typical rescue vessels)
-            if (!isRescueVessel && vessel.parts.Count <= 8 && vessel.GetCrewCount() == 1)
-            {
-                isRescueVessel = true;
-                detectionReason = "small vessel (≤8 parts) with exactly 1 crew member";
-            }
-            
             // Check for very small vessels with crew
-            if (!isRescueVessel && vessel.parts.Count <= 3 && vessel.GetCrewCount() > 0)
+            if (!isRescueVessel && vessel.parts.Count <= 3 && vessel.GetCrewCount() == 1)
             {
                 isRescueVessel = true;
                 detectionReason = "very small vessel (≤3 parts) with crew";
-            }
-            
-            // Check kerbal names for rescue-related terms
-            if (!isRescueVessel && vessel.GetCrewCount() > 0)
-            {
-                foreach (var crew in vessel.GetVesselCrew())
-                {
-                    var crewNameLower = crew.name.ToLowerInvariant();
-                    if (crewNameLower.Contains("rescue") || crewNameLower.Contains("stranded") || 
-                        crewNameLower.Contains("lost"))
-                    {
-                        isRescueVessel = true;
-                        detectionReason = $"kerbal name contains rescue terms: {crew.name}";
-                        break;
-                    }
-                }
             }
             
             // Check if there are active rescue contracts
@@ -372,23 +350,6 @@ namespace LmpClient.Systems.ShareContracts
             {
                 isRescueVessel = true;
                 detectionReason = "active rescue contracts detected";
-            }
-            
-            // Additional checks for specific rescue vessel characteristics
-            if (!isRescueVessel)
-            {
-                // Check if vessel is in a typical rescue situation (sub-orbital, landed, etc.)
-                if (vessel.situation == Vessel.Situations.SUB_ORBITAL || 
-                    vessel.situation == Vessel.Situations.LANDED ||
-                    vessel.situation == Vessel.Situations.SPLASHED)
-                {
-                    // Check if it's a small vessel with crew in a rescue-like situation
-                    if (vessel.parts.Count <= 5 && vessel.GetCrewCount() > 0)
-                    {
-                        isRescueVessel = true;
-                        detectionReason = $"small vessel with crew in {vessel.situation} situation";
-                    }
-                }
             }
             
             LunaLog.Log($"  - Detection result: {(isRescueVessel ? "✅ RESCUE VESSEL" : "❌ NOT RESCUE VESSEL")}");
