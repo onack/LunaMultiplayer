@@ -134,14 +134,8 @@ namespace LmpClient.Systems.ShareContracts
 
         public void ContractParameterChanged(Contract contract, ContractParameter contractParameter)
         {
-            //Do not send contract parameter changes as other players might override them
-            //See: https://github.com/LunaMultiplayer/LunaMultiplayer/issues/186
-
-            //TODO: Perhaps we can send only when the parameters are complete?
-            //if (contractParameter.State == ParameterState.Complete)
-            //    System.MessageSender.SendContractMessage(contract);
-
-            LunaLog.Log($"Contract parameter changed on:{contract.ContractGuid}");
+            if (System.IgnoreEvents) return;
+            HandleContractParameterChange(contract, contractParameter);
         }
 
         public void ContractRead(Contract contract)
@@ -152,6 +146,68 @@ namespace LmpClient.Systems.ShareContracts
         public void ContractSeen(Contract contract)
         {
             LunaLog.Log($"Contract seen:{contract.ContractGuid}");
+        }
+
+        #endregion
+
+        #region Contract Parameter Handling
+
+        // Static array of permanent parameters that should be synced
+        private static readonly string[] PermanentParameters = new[]
+        {
+            "RecoverKerbal",
+            "ReachSituation", 
+            "PartTest",
+            "Science",
+            "CollectScience",
+            "PlantFlag",
+            "AcquireCrew",
+            "ReturnHome"
+        };
+
+        /// <summary>
+        /// Handle contract parameter changes and determine if they should be synced
+        /// </summary>
+        private void HandleContractParameterChange(Contract contract, ContractParameter contractParameter)
+        {
+            // Log the parameter type for analysis
+            var parameterType = contractParameter.GetType().Name;
+            LunaLog.Log($"Contract parameter type: {parameterType} - Title: {contractParameter.Title} - State: {contractParameter.State}");
+
+            // Only sync parameters that are permanently completed, not temporary ones
+            if (contractParameter.State == ParameterState.Complete && IsPermanentParameter(contractParameter))
+            {
+                LunaLog.Log($"Permanent contract parameter completed: {contract.ContractGuid} - {contractParameter.Title}");
+                System.MessageSender.SendContractMessage(contract);
+            }
+            else
+            {
+                LunaLog.Log($"Contract parameter changed (not syncing): {contract.ContractGuid} - {contractParameter.Title} - State: {contractParameter.State}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a contract parameter is permanent (not temporary like flight height/speed)
+        /// </summary>
+        private bool IsPermanentParameter(ContractParameter parameter)
+        {
+            if (parameter == null) return false;
+
+            var parameterType = parameter.GetType().Name;
+            
+            // Check if this is a permanent parameter
+            foreach (var permParam in PermanentParameters)
+            {
+                if (parameterType.Contains(permParam))
+                {
+                    LunaLog.Log($"Parameter {parameterType} identified as permanent");
+                    return true;
+                }
+            }
+
+            // For unknown parameters, be conservative and don't sync
+            LunaLog.Log($"Unknown parameter type {parameterType} - not syncing");
+            return false;
         }
 
         #endregion
