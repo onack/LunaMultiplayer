@@ -155,13 +155,28 @@ namespace LmpClient.Systems.ShareContracts
         // Static array of permanent parameters that should be synced
         private static readonly string[] PermanentParameters = new[]
         {
+            // Stock parameters
             "RecoverKerbal",
+            "RecoverPart",
+            "AcquirePart",
             "PartTest",
-            "Science",
+            "LandOnBody",
             "CollectScience",
             "PlantFlag",
             "AcquireCrew",
-            "ReturnHome"
+            "EnterSOI",
+            "EnterOrbit",
+            // Contract configurator parameters
+            "ReturnHome",
+            "Docking",
+            "Rendezvous",
+            "RecoverVessel",
+            "VisitWaypoint",
+            "PerformOrbitalSurvey",
+            "SCANsatCoverage",
+            "TargetDestroyed",
+            "VesselDestroyed",
+            "ReachSpace",
         };
 
         /// <summary>
