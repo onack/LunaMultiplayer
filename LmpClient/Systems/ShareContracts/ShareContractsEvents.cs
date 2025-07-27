@@ -156,7 +156,6 @@ namespace LmpClient.Systems.ShareContracts
         private static readonly string[] PermanentParameters = new[]
         {
             "RecoverKerbal",
-            "ReachSituation", 
             "PartTest",
             "Science",
             "CollectScience",
