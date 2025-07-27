@@ -9,7 +9,6 @@ using LmpClient.Systems.VesselProtoSys;
 using LmpClient.Systems.KerbalSys;
 using LmpClient.Utilities;
 using LmpCommon.Locks;
-using System.Linq;
 using Contracts.Parameters;
 
 namespace LmpClient.Systems.ShareContracts
